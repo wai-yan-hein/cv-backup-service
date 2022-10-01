@@ -1,8 +1,5 @@
 user=root
 password=corevalue
 host=127.0.0.1
-db.list=cv_acc_mo,
+db.list=cv_acc_lts,cv_acc_hps
 output.path=D://CoreValue//backup
-
-backup.google=1
-company.name="Myint Mo Hospital"
