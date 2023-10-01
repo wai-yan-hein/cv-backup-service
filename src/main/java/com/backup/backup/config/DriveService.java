@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 import java.util.List;
@@ -49,7 +51,7 @@ public class DriveService {
         if (!DATA_STORE_DIR.exists()) {
             throw new FileNotFoundException("copy store file: " + System.getProperty("user.home"));
         }
-        InputStream in = new FileInputStream(CREDENTIALS_FILE_PATH);
+        InputStream in = Files.newInputStream(Paths.get(CREDENTIALS_FILE_PATH));
         GoogleClientSecrets clientSecrets =
                 GoogleClientSecrets.load(JSON_FACTORY, new InputStreamReader(in));
         // Build flow and trigger user authorization request.

@@ -5,6 +5,7 @@
  */
 package com.backup.backup.schedule;
 
+import com.backup.backup.api.HTMLUtil;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.CompressionLevel;
@@ -23,19 +24,21 @@ public class Zip {
     private static final Logger log = LoggerFactory.getLogger(Zip.class);
     private static final char[] password = {'c', 'o', 'r', 'e', 'v', 'a', 'l', 'u', 'e'};
 
-    public static void zip(String filePath) {
-        try {
-            log.info("Zip Start.");
-            String zipName = filePath.replace(".sql", ".zip");
-            File file = new File(filePath);
-            ZipFile f = new ZipFile(zipName, password);
-            f.addFile(file, zipParameter());
-            file.delete();
-            f.close();
-            log.info("Zip End.");
-        } catch (IOException e) {
-            log.error(e.getMessage());
+    public static void zip(String filePath, String localPath) throws Exception {
+        log.info("Zip Start.");
+        String zipName = filePath.replace(".sql", ".zip");
+        String localName = localPath.replace(".sql", ".zip");
+        File file = new File(filePath);
+        ZipFile f = new ZipFile(zipName, password);
+        f.addFile(file, zipParameter());
+        f.close();
+        if (!localPath.equals(filePath)) {
+            ZipFile local = new ZipFile(localName, password);
+            local.addFile(file, zipParameter());
+            local.close();
         }
+        file.delete();
+        log.info("Zip End.");
     }
 
     private static ZipParameters zipParameter() {

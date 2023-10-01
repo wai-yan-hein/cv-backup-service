@@ -6,19 +6,21 @@
 package com.backup.backup.schedule;
 
 import com.backup.backup.Util1;
+import com.backup.backup.service.EmailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -29,69 +31,106 @@ import java.util.Objects;
 public class BackupScheduler {
 
     private static final Logger log = LoggerFactory.getLogger(BackupScheduler.class);
-    @Value("${user}")
+    @Autowired
+    private EmailService emailService;
+    @Value("${db.user}")
     private String username;
-    @Value("${password}")
+    @Value("${db.password}")
     private String password;
-    @Value("${host}")
+    @Value("${db.host}")
     private String host;
     @Value("${db.list}")
     private String dbList;
-    @Value("${output.path}")
+    @Value("${db.output.path}")
     private String outputPath;
     @Value("${company.name}")
     private String compName;
     @Value("${backup.google}")
     private String backupGoogle;
+    @Autowired
+    private Environment environment;
     private final GoogleDrive drive = new GoogleDrive();
 
     public BackupScheduler() {
     }
 
-    @Scheduled(fixedRate = 60 * 60 * 1000)
+    @Scheduled(fixedRate = 30 * 60 * 1000)
     private void reportCurrentTime() {
-        if (dbList.contains(",")) {
-            String[] list = dbList.split(",");
-            for (String db : list) {
-                log.info(String.format("%s backup start.", db));
-                if (!Objects.isNull(db)) {
-                    String directory = outputPath + "//" + db;
-                    if (!new File(directory).isDirectory()) {
-                        try {
-                            Files.createDirectories(Paths.get(directory));
-                            log.info(directory + " created.");
-                        } catch (IOException e) {
-                            log.error(e.getMessage());
-                        }
+        if (!dbList.isEmpty()) {
+            if (dbList.contains(",")) {
+                String[] list = dbList.split(",");
+                for (String db : list) {
+                    log.info(String.format("%s backup start.", db));
+                    if (!Objects.isNull(db)) {
+                        String sql = getSql(db, exportPath(db));
+                        dump(sql, exportPath(db), localPath(db), db);
                     }
-                    String path = directory + "//" + getFileName();
-                    String sql = "mysqldump --host=" + host + " --port=3306 --default-character-set=utf8 --user=" + username + " --password=" + password + " --protocol=tcp --single-transaction=TRUE --routines --events " + db + ">" + path + "";
-
-                    //log.info(sql);
-                    try {
-                        Process exec = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", sql});
-                        exec.waitFor();
-                        log.info(String.format("%s backup end.", db));
-                        Zip.zip(path);
-                        uploadToDrive(db, getFileName(), path);
-                    } catch (IOException | InterruptedException ex) {
-                        log.error(ex.getMessage());
-                    }
-
                 }
+            } else if (dbList.equals("*")) {
+                log.info("all database backup mode on.");
+                List<String> list = Util1.getSchemeList(host, username, password);
+                list.forEach(db -> {
+                    log.info(String.format("%s backup start.", db));
+                    if (!Objects.isNull(db)) {
+                        String sql = getSql(db, exportPath(db));
+                        dump(sql, exportPath(db), localPath(db), db);
+                    }
+                });
+            } else {
+                log.info(String.format("%s backup start.", dbList));
+                String sql = getSql(dbList, exportPath(dbList));
+                dump(sql, exportPath(dbList), localPath(dbList), dbList);
             }
         }
     }
 
-    private String getFileName() {
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH");
-        LocalDateTime now = LocalDateTime.now();
-        String strHour = dtf.format(now);
-        if (strHour.length() == 1) {
-            strHour = "0" + strHour;
+    private void dump(String sql, String path, String localPath, String db) {
+        try {
+            Process exec;
+            String os = System.getProperty("os.name").toLowerCase();
+
+            if (os.contains("win")) {  // For Windows
+                exec = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", sql});
+            } else {  // For other operating systems, including CentOS
+                exec = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", sql});
+            }
+            exec.waitFor();
+            log.info(String.format("%s backup end.", db));
+            Zip.zip(path, localPath);
+        } catch (Exception ex) {
+            log.error("IOException: " + ex.getMessage());
+            emailService.sendErrorMail(compName,ex.getMessage());
         }
-        strHour = strHour + "-00.sql";
-        return strHour;
+    }
+
+
+    private String getSql(String db, String path) {
+        String program = environment.getProperty("program", "mariadb-dump");
+        return program + " --host=" + host + " --port=3306 --default-character-set=utf8 --user=" + username + " --password=" + password + " --protocol=tcp --single-transaction=TRUE --routines --events " + db + ">" + path;
+    }
+
+    private String exportPath(String db) {
+        String rootUrl = outputPath.isEmpty() ? "backup" : outputPath;
+        String filePath = rootUrl + "/" + getDay() + "/" + getHour() + "/" + db.concat(".sql");
+        File file = new File(filePath);
+        // Create the directory path if it doesn't exist
+        File parentDirectory = file.getParentFile();
+        if (!parentDirectory.exists()) {
+            parentDirectory.mkdirs();
+        }
+        return filePath;
+    }
+
+    private String localPath(String db) {
+        String rootUrl = "backup";
+        String filePath = rootUrl + "/" + getDay() + "/" + getHour() + "/" + db.concat(".sql");
+        File file = new File(filePath);
+        // Create the directory path if it doesn't exist
+        File parentDirectory = file.getParentFile();
+        if (!parentDirectory.exists()) {
+            parentDirectory.mkdirs();
+        }
+        return filePath;
     }
 
     private void uploadToDrive(String folderName, String fileName, String path) {
@@ -104,5 +143,16 @@ public class BackupScheduler {
         }
     }
 
+    private String getDay() {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd");
+        LocalDateTime now = LocalDateTime.now();
+        return dtf.format(now).concat("day");
+    }
+
+    private String getHour() {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH");
+        LocalDateTime now = LocalDateTime.now();
+        return dtf.format(now);
+    }
 
 }
