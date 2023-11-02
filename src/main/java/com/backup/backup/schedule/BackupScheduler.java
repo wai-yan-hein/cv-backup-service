@@ -41,8 +41,6 @@ public class BackupScheduler {
     private String host;
     @Value("${db.list}")
     private String dbList;
-    @Value("${db.output.path}")
-    private String outputPath;
     @Value("${company.name}")
     private String compName;
     @Value("${backup.google}")
@@ -54,7 +52,7 @@ public class BackupScheduler {
     public BackupScheduler() {
     }
 
-    @Scheduled(fixedRate = 30 * 60 * 1000)
+    @Scheduled(fixedRate = 15 * 60 * 1000)
     private void reportCurrentTime() {
         if (!dbList.isEmpty()) {
             if (dbList.contains(",")) {
@@ -62,8 +60,8 @@ public class BackupScheduler {
                 for (String db : list) {
                     log.info(String.format("%s backup start.", db));
                     if (!Objects.isNull(db)) {
-                        String sql = getSql(db, exportPath(db));
-                        dump(sql, exportPath(db), localPath(db), db);
+                        String sql = getSql(db, getLocalPath(db));
+                        dump(sql, getLocalPath(db), db);
                     }
                 }
             } else if (dbList.equals("*")) {
@@ -72,19 +70,19 @@ public class BackupScheduler {
                 list.forEach(db -> {
                     log.info(String.format("%s backup start.", db));
                     if (!Objects.isNull(db)) {
-                        String sql = getSql(db, exportPath(db));
-                        dump(sql, exportPath(db), localPath(db), db);
+                        String sql = getSql(db, getLocalPath(db));
+                        dump(sql, getLocalPath(db), db);
                     }
                 });
             } else {
                 log.info(String.format("%s backup start.", dbList));
-                String sql = getSql(dbList, exportPath(dbList));
-                dump(sql, exportPath(dbList), localPath(dbList), dbList);
+                String sql = getSql(dbList, getLocalPath(dbList));
+                dump(sql, getLocalPath(dbList), dbList);
             }
         }
     }
 
-    private void dump(String sql, String path, String localPath, String db) {
+    private void dump(String sql, String localPath, String db) {
         try {
             Process exec;
             String os = System.getProperty("os.name").toLowerCase();
@@ -96,10 +94,10 @@ public class BackupScheduler {
             }
             exec.waitFor();
             log.info(String.format("%s backup end.", db));
-            Zip.zip(path, localPath);
+            Zip.zip(localPath);
         } catch (Exception ex) {
             log.error("IOException: " + ex.getMessage());
-            emailService.sendErrorMail(compName,ex.getMessage());
+            emailService.sendErrorMail(compName, ex.getMessage());
         }
     }
 
@@ -109,21 +107,10 @@ public class BackupScheduler {
         return program + " --host=" + host + " --port=3306 --default-character-set=utf8 --user=" + username + " --password=" + password + " --protocol=tcp --single-transaction=TRUE --routines --events " + db + ">" + path;
     }
 
-    private String exportPath(String db) {
-        String rootUrl = outputPath.isEmpty() ? "backup" : outputPath;
-        String filePath = rootUrl + "/" + getDay() + "/" + getHour() + "/" + db.concat(".sql");
-        File file = new File(filePath);
-        // Create the directory path if it doesn't exist
-        File parentDirectory = file.getParentFile();
-        if (!parentDirectory.exists()) {
-            parentDirectory.mkdirs();
-        }
-        return filePath;
-    }
 
-    private String localPath(String db) {
+    private String getLocalPath(String db) {
         String rootUrl = "backup";
-        String filePath = rootUrl + "/" + getDay() + "/" + getHour() + "/" + db.concat(".sql");
+        String filePath = rootUrl + "/" + getDay() + "/" + getHour() + "/" + getMinute() + "/" + db.concat(".sql");
         File file = new File(filePath);
         // Create the directory path if it doesn't exist
         File parentDirectory = file.getParentFile();
@@ -133,15 +120,6 @@ public class BackupScheduler {
         return filePath;
     }
 
-    private void uploadToDrive(String folderName, String fileName, String path) {
-        if (Util1.getBoolean(backupGoogle)) {
-            try {
-                drive.uploadToGoogleDrive(compName, path, folderName, fileName);
-            } catch (IOException e) {
-                log.error("uploadToDrive: " + e.getMessage());
-            }
-        }
-    }
 
     private String getDay() {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd");
@@ -152,7 +130,15 @@ public class BackupScheduler {
     private String getHour() {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("HH");
         LocalDateTime now = LocalDateTime.now();
-        return dtf.format(now);
+        return dtf.format(now).concat("hour");
+    }
+
+    private String getMinute() {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("mm");
+        LocalDateTime now = LocalDateTime.now();
+        String minute =dtf.format(now);
+        char firstDigit = minute.charAt(0);
+        return String.valueOf(firstDigit).concat("≈");
     }
 
 }

@@ -15,6 +15,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 
 /**
  * @author Wai Yan
@@ -24,21 +26,39 @@ public class Zip {
     private static final Logger log = LoggerFactory.getLogger(Zip.class);
     private static final char[] password = {'c', 'o', 'r', 'e', 'v', 'a', 'l', 'u', 'e'};
 
-    public static void zip(String filePath, String localPath) throws Exception {
+    public static void zip(String localPath) {
         log.info("Zip Start.");
-        String zipName = filePath.replace(".sql", ".zip");
-        String localName = localPath.replace(".sql", ".zip");
-        File file = new File(filePath);
-        ZipFile f = new ZipFile(zipName, password);
-        f.addFile(file, zipParameter());
-        f.close();
-        if (!localPath.equals(filePath)) {
-            ZipFile local = new ZipFile(localName, password);
-            local.addFile(file, zipParameter());
-            local.close();
+        exportBackup(localPath);
+        log.info("Zip End.");
+    }
+
+    private static void exportBackup(String localPath) {
+        File[] roots = File.listRoots();
+        File file = new File(localPath);
+        for (File root : roots) {
+            try {
+                String filePath = root.getPath() + "CoreValue/" + localPath;
+                Path path = FileSystems.getDefault().getPath(filePath);
+                filePath = path.toString();
+                String zipFile = filePath.replace(".sql", ".zip");
+                createPath(filePath);
+                ZipFile f = new ZipFile(zipFile, password);
+                f.addFile(file, zipParameter());
+                f.close();
+            } catch (Exception e) {
+                log.error("exportBackup : " + e.getMessage());
+            }
         }
         file.delete();
-        log.info("Zip End.");
+
+    }
+
+    private static void createPath(String path) {
+        File file = new File(path);
+        File parentDirectory = file.getParentFile();
+        if (!parentDirectory.exists()) {
+            parentDirectory.mkdirs();
+        }
     }
 
     private static ZipParameters zipParameter() {
