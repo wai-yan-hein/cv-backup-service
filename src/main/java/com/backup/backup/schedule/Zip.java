@@ -41,7 +41,7 @@ public class Zip {
             f.addFile(file, zipParameter());
             f.close();
         }catch (Exception e){
-            //log.error("exportLocal : "+e.getMessage());
+            log.error("exportLocal : "+e.getMessage());
         }
     }
 
@@ -59,7 +59,7 @@ public class Zip {
                 f.addFile(file, zipParameter());
                 f.close();
             } catch (Exception e) {
-                //log.error("exportBackup : " + e.getMessage());
+                log.error("exportBackup : " + e.getMessage());
             }
         }
         file.delete();
