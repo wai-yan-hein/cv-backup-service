@@ -16,8 +16,10 @@ import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -136,7 +138,7 @@ public class BackupScheduler {
     private String getMinute() {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("mm");
         LocalDateTime now = LocalDateTime.now();
-        String minute =dtf.format(now);
+        String minute = dtf.format(now);
         char firstDigit = minute.charAt(0);
         return String.valueOf(firstDigit).concat("≈");
     }
