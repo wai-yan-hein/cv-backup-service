@@ -38,47 +38,32 @@ public class BackupScheduler {
     private String password;
     @Value("${db.host}")
     private String host;
-    @Value("${db.list}")
-    private String dbList;
     @Value("${company.name}")
     private String compName;
     @Value("${backup.google}")
     private String backupGoogle;
     @Autowired
     private Environment environment;
-    private final GoogleDrive drive = new GoogleDrive();
-
     public BackupScheduler() {
     }
 
     @Scheduled(fixedRate = 15 * 60 * 1000)
     private void reportCurrentTime() {
-        if (!dbList.isEmpty()) {
-            if (dbList.contains(",")) {
-                String[] list = dbList.split(",");
-                for (String db : list) {
-                    log.info(String.format("%s backup start.", db));
-                    if (!Objects.isNull(db)) {
-                        String sql = getSql(db, getLocalPath(db));
-                        dump(sql, getLocalPath(db), db);
-                    }
-                }
-            } else if (dbList.equals("*")) {
-                log.info("all database backup mode on.");
-                List<String> list = Util1.getSchemeList(host, username, password);
+        host += ",";
+        String[] listHost = host.split(",");
+        for (String h : listHost) {
+            if (!Util1.isNullOrEmpty(h)) {
+                List<String> list = Util1.getSchemeList(h, username, password);
                 list.forEach(db -> {
                     log.info(String.format("%s backup start.", db));
                     if (!Objects.isNull(db)) {
-                        String sql = getSql(db, getLocalPath(db));
+                        String sql = getSql(h, db, getLocalPath(db));
                         dump(sql, getLocalPath(db), db);
                     }
                 });
-            } else {
-                log.info(String.format("%s backup start.", dbList));
-                String sql = getSql(dbList, getLocalPath(dbList));
-                dump(sql, getLocalPath(dbList), dbList);
             }
         }
+
     }
 
     private void dump(String sql, String localPath, String db) {
@@ -101,7 +86,7 @@ public class BackupScheduler {
     }
 
 
-    private String getSql(String db, String path) {
+    private String getSql(String host, String db, String path) {
         String program = environment.getProperty("program", "mariadb-dump");
         return program + " --host=" + host + " --port=3306 --default-character-set=utf8 --user=" + username + " --password=" + password + " --protocol=tcp --single-transaction=TRUE --routines --events " + db + ">" + path;
     }
