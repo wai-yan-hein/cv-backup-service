@@ -5,7 +5,6 @@
  */
 package com.backup.backup.schedule;
 
-import com.backup.backup.api.HTMLUtil;
 import net.lingala.zip4j.ZipFile;
 import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.CompressionLevel;
@@ -13,10 +12,14 @@ import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.filechooser.FileSystemView;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileStore;
 import java.nio.file.FileSystems;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Objects;
 
 /**
  * @author Wai Yan
@@ -32,7 +35,8 @@ public class Zip {
         exportBackup(localPath);
         log.info("Zip End.");
     }
-    private static void exportLocal(String localPath){
+
+    private static void exportLocal(String localPath) {
         File file = new File(localPath);
         String zipFile = localPath.replace(".sql", ".zip");
         createPath(localPath);
@@ -40,8 +44,8 @@ public class Zip {
             ZipFile f = new ZipFile(zipFile, password);
             f.addFile(file, zipParameter());
             f.close();
-        }catch (Exception e){
-            log.error("exportLocal : "+e.getMessage());
+        } catch (Exception e) {
+            log.error("exportLocal : " + e.getMessage());
         }
     }
 
@@ -49,21 +53,32 @@ public class Zip {
         File[] roots = File.listRoots();
         File file = new File(localPath);
         for (File root : roots) {
-            try {
-                String filePath = root.getPath() + "CoreValue/" + localPath;
-                Path path = FileSystems.getDefault().getPath(filePath);
-                filePath = path.toString();
-                String zipFile = filePath.replace(".sql", ".zip");
-                createPath(filePath);
-                ZipFile f = new ZipFile(zipFile, password);
-                f.addFile(file, zipParameter());
-                f.close();
-            } catch (Exception e) {
-                log.error("exportBackup : " + e.getMessage());
+            String letter = getPartitionLetter(root);
+            String cp = getProgramPartition();
+            if (checkPartitionGB(root)) {
+                assert letter != null;
+                if (!letter.contains(cp)) {
+                    try {
+                        String filePath = root.getPath() + "CoreValue/" + localPath;
+                        Path path = FileSystems.getDefault().getPath(filePath);
+                        filePath = path.toString();
+                        String zipFile = filePath.replace(".sql", ".zip");
+                        createPath(filePath);
+                        ZipFile f = new ZipFile(zipFile, password);
+                        f.addFile(file, zipParameter());
+                        f.close();
+                    } catch (Exception e) {
+                        log.error("exportBackup : " + e.getMessage());
+                    }
+                }
             }
         }
         file.delete();
+    }
 
+    private static boolean checkPartitionGB(File file) {
+        int gb = bytesToGB(file.getTotalSpace());
+        return gb >= 100;
     }
 
     private static void createPath(String path) {
@@ -74,11 +89,33 @@ public class Zip {
         }
     }
 
+    private static String getPartitionLetter(File root) {
+        String path = root.getAbsolutePath();
+        if (path.length() >= 2 && path.charAt(1) == ':') {
+            return String.valueOf(path.charAt(0));
+        } else {
+            return null; // Not a valid drive letter
+        }
+    }
+
     private static ZipParameters zipParameter() {
         ZipParameters param = new ZipParameters();
         param.setEncryptFiles(true);
         param.setCompressionLevel(CompressionLevel.HIGHER);
         param.setEncryptionMethod(EncryptionMethod.AES);
         return param;
+    }
+
+    private static String getProgramPartition() {
+
+        Path currentDir = FileSystems.getDefault().getPath("").toAbsolutePath();
+        String partitionName = currentDir.getRoot().toString();
+        partitionName = partitionName.substring(0, partitionName.length() - 2);
+        return partitionName;
+    }
+
+    private static int bytesToGB(long bytes) {
+        return (int) (bytes / (1024 * 1024 * 1024));
+
     }
 }

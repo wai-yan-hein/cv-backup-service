@@ -19,8 +19,7 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * @author Lenovo
@@ -40,20 +39,29 @@ public class BackupScheduler {
     private String host;
     @Value("${company.name}")
     private String compName;
-    @Value("${backup.google}")
-    private String backupGoogle;
+    @Value("${db.list:}")
+    private String dbList;
     @Autowired
     private Environment environment;
+
     public BackupScheduler() {
     }
 
-    @Scheduled(fixedRate = 15 * 60 * 1000)
+    @Scheduled(fixedRate = 30 * 60 * 1000)
     private void reportCurrentTime() {
         host += ",";
         String[] listHost = host.split(",");
+        String[] listDB = dbList.contains(",") ? dbList.split(",") : new String[]{dbList};
+        listDB = Arrays.stream(listDB)
+                .filter(s -> !s.isEmpty())
+                .toArray(String[]::new);
+        Set<String> mergedSet = new HashSet<>(List.of(listDB));
+
         for (String h : listHost) {
             if (!Util1.isNullOrEmpty(h)) {
-                List<String> list = Util1.getSchemeList(h, username, password);
+                List<String> listSch = Util1.getSchemeList(h, username, password);
+                mergedSet.addAll(listSch);
+                List<String> list = new ArrayList<>(mergedSet);
                 list.forEach(db -> {
                     log.info(String.format("%s backup start.", db));
                     if (!Objects.isNull(db)) {
@@ -121,8 +129,9 @@ public class BackupScheduler {
         DateTimeFormatter dtf = DateTimeFormatter.ofPattern("mm");
         LocalDateTime now = LocalDateTime.now();
         String minute = dtf.format(now);
-        char firstDigit = minute.charAt(0);
-        return String.valueOf(firstDigit).concat("≈");
+        int tmp = Integer.parseInt(minute);
+        tmp = tmp <= 30 ? 30 : 60;
+        return String.valueOf(tmp);
     }
 
 }
