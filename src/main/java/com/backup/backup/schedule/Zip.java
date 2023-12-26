@@ -12,14 +12,9 @@ import net.lingala.zip4j.model.enums.EncryptionMethod;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.filechooser.FileSystemView;
 import java.io.File;
-import java.io.IOException;
-import java.nio.file.FileStore;
 import java.nio.file.FileSystems;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
 
 /**
  * @author Wai Yan
@@ -44,8 +39,16 @@ public class Zip {
             ZipFile f = new ZipFile(zipFile, password);
             f.addFile(file, zipParameter());
             f.close();
+            updateParentDirectories(file);
         } catch (Exception e) {
             log.error("exportLocal : " + e.getMessage());
+        }
+    }
+
+    private static void updateParentDirectories(File directory) {
+        if (directory != null) {
+            directory.setLastModified(System.currentTimeMillis());
+            updateParentDirectories(directory.getParentFile());
         }
     }
 
@@ -67,6 +70,7 @@ public class Zip {
                         ZipFile f = new ZipFile(zipFile, password);
                         f.addFile(file, zipParameter());
                         f.close();
+                        updateParentDirectories(root);
                     } catch (Exception e) {
                         log.error("exportBackup : " + e.getMessage());
                     }
