@@ -70,7 +70,7 @@ public class Zip {
                         ZipFile f = new ZipFile(zipFile, password);
                         f.addFile(file, zipParameter());
                         f.close();
-                        updateParentDirectories(root);
+                        updateParentDirectories(file);
                     } catch (Exception e) {
                         log.error("exportBackup : " + e.getMessage());
                     }
