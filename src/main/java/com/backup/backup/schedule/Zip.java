@@ -58,29 +58,31 @@ public class Zip {
         File file = new File(localPath);
         for (File root : roots) {
             String letter = getPartitionLetter(root);
-            String cp = getProgramPartition();
-            if (checkPartitionGB(root)) {
-                assert letter != null;
-                if (!letter.contains(cp)) {
-                    try {
-                        String filePath = root.getPath() + "CoreValue/" + localPath;
-                        Path path = FileSystems.getDefault().getPath(filePath);
-                        filePath = path.toString();
-                        String zipFile;
-                        if (filePath.endsWith(".sql")) {
-                            zipFile = filePath.replace(".sql", ".zip");
-                        } else {
-                            zipFile = filePath + ".zip"; // Append .zip if .sql is not found
+            if (letter != null) {
+                String cp = getProgramPartition();
+                if (checkPartitionGB(root)) {
+                    if (!letter.contains(cp)) {
+                        try {
+                            String filePath = root.getPath() + "CoreValue/" + localPath;
+                            Path path = FileSystems.getDefault().getPath(filePath);
+                            filePath = path.toString();
+                            String zipFile;
+                            if (filePath.endsWith(".sql")) {
+                                zipFile = filePath.replace(".sql", ".zip");
+                            } else {
+                                zipFile = filePath + ".zip"; // Append .zip if .sql is not found
+                            }
+                            createPath(filePath);
+                            ZipFile f = new ZipFile(zipFile, password);
+                            f.addFile(file, zipParameter());
+                            f.close();
+                        } catch (Exception e) {
+                            log.error("exportBackup : " + e.getMessage());
                         }
-                        createPath(filePath);
-                        ZipFile f = new ZipFile(zipFile, password);
-                        f.addFile(file, zipParameter());
-                        f.close();
-                    } catch (Exception e) {
-                        log.error("exportBackup : " + e.getMessage());
                     }
                 }
             }
+
         }
         file.delete();
     }
@@ -100,12 +102,17 @@ public class Zip {
     }
 
     private static String getPartitionLetter(File root) {
-        String path = root.getAbsolutePath();
-        if (path.length() >= 2 && path.charAt(1) == ':') {
-            return String.valueOf(path.charAt(0));
-        } else {
-            return null; // Not a valid drive letter
+        if (isWindow()) {
+            String path = root.getAbsolutePath();
+            if (path.length() >= 2 && path.charAt(1) == ':') {
+                return String.valueOf(path.charAt(0));
+            }
         }
+        return null;
+    }
+
+    private static boolean isWindow() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
     }
 
     private static ZipParameters zipParameter() {
