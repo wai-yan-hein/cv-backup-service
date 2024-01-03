@@ -26,6 +26,7 @@ public class Zip {
 
     public static void zip(String localPath) {
         log.info("Zip Start.");
+        log.info(localPath);
         exportLocal(localPath);
         exportBackup(localPath);
         log.info("Zip End.");
@@ -65,12 +66,16 @@ public class Zip {
                         String filePath = root.getPath() + "CoreValue/" + localPath;
                         Path path = FileSystems.getDefault().getPath(filePath);
                         filePath = path.toString();
-                        String zipFile = filePath.replace(".sql", ".zip");
+                        String zipFile;
+                        if (filePath.endsWith(".sql")) {
+                            zipFile = filePath.replace(".sql", ".zip");
+                        } else {
+                            zipFile = filePath + ".zip"; // Append .zip if .sql is not found
+                        }
                         createPath(filePath);
                         ZipFile f = new ZipFile(zipFile, password);
                         f.addFile(file, zipParameter());
                         f.close();
-                        updateParentDirectories(file);
                     } catch (Exception e) {
                         log.error("exportBackup : " + e.getMessage());
                     }
@@ -91,6 +96,7 @@ public class Zip {
         if (!parentDirectory.exists()) {
             parentDirectory.mkdirs();
         }
+        updateParentDirectories(file);
     }
 
     private static String getPartitionLetter(File root) {

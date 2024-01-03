@@ -79,19 +79,24 @@ public class BackupScheduler {
             Process exec;
             String os = System.getProperty("os.name").toLowerCase();
 
+            //log.info("Operating System: " + os);
+
             if (os.contains("win")) {  // For Windows
+                //log.info("Executing Windows command: " + sql);
                 exec = Runtime.getRuntime().exec(new String[]{"cmd.exe", "/c", sql});
             } else {  // For other operating systems, including CentOS
+                //log.info("Executing Unix command: " + sql);
                 exec = Runtime.getRuntime().exec(new String[]{"/bin/bash", "-c", sql});
             }
             exec.waitFor();
             log.info(String.format("%s backup end.", db));
             Zip.zip(localPath);
         } catch (Exception ex) {
-            log.error("IOException: " + ex.getMessage());
+            log.error("dump: " + ex.getMessage());
             emailService.sendErrorMail(compName, ex.getMessage());
         }
     }
+
 
 
     private String getSql(String host, String db, String path) {
@@ -102,13 +107,14 @@ public class BackupScheduler {
 
     private String getLocalPath(String db) {
         String rootUrl = "backup";
-        String filePath = rootUrl + "/" + getDay() + "/" + getHour() + "/" + getMinute() + "/" + db.concat(".sql");
+        String filePath = rootUrl + File.separator + getDay() + File.separator + getHour() + File.separator + getMinute() + File.separator + db.concat(".sql");
         File file = new File(filePath);
         // Create the directory path if it doesn't exist
         File parentDirectory = file.getParentFile();
         if (!parentDirectory.exists()) {
             parentDirectory.mkdirs();
         }
+
         return filePath;
     }
 
