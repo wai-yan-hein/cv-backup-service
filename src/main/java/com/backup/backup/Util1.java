@@ -1,6 +1,5 @@
 package com.backup.backup;
 
-import com.backup.backup.schedule.BackupScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,10 +27,16 @@ public class Util1 {
         try {
             Connection connection = DriverManager.getConnection(jdbcUrl, username, password);
             Statement statement = connection.createStatement();
-            ResultSet resultSet = statement.executeQuery("SHOW DATABASES LIKE 'cv%'");
+            String sql= """
+                    select schema_name as database_name
+                    from information_schema.SCHEMATA
+                    where SCHEMA_NAME like 'cv%'
+                    order by schema_name;
+                    """;
+            ResultSet resultSet = statement.executeQuery(sql);
 
             while (resultSet.next()) {
-                schemaList.add(resultSet.getString(1));
+                schemaList.add(resultSet.getString("database_name"));
             }
             resultSet.close();
             statement.close();

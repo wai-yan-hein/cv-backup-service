@@ -62,6 +62,7 @@ public class BackupScheduler {
                 List<String> listSch = Util1.getSchemeList(h, username, password);
                 mergedSet.addAll(listSch);
                 List<String> list = new ArrayList<>(mergedSet);
+                Collections.sort(list);
                 list.forEach(db -> {
                     log.info(String.format("%s backup start.", db));
                     if (!Objects.isNull(db)) {
